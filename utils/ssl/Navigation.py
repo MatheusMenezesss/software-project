@@ -7,7 +7,7 @@ from utils.Geometry import Geometry
 
 
 PROP_VELOCITY_MIN_FACTOR: float = 0.1
-MAX_VELOCITY: float = 1.5
+MAX_VELOCITY: float = 2
 ANGLE_EPSILON: float = 0.1
 ANGLE_KP: float = 5
 MIN_DIST_TO_PROP_VELOCITY: float = 720
@@ -38,6 +38,57 @@ class Navigation:
       return
     
     return ((value - lLower) * (rHigher - rLower) / (lHigher - lLower) + rLower)
+  
+  @staticmethod
+  def check_collision(robot: Robot, obstacles: dict[int, Robot], collision_distance: float) -> bool:
+      """
+      Verifica se o robô está prestes a colidir com outro robô.
+
+      Args:
+          robot (Robot): O robô atual.
+          obstacles (dict[int, Robot]): Outros robôs no campo.
+          collision_distance (float): Distância mínima para considerar uma colisão.
+
+      Returns:
+          bool: True se houver risco de colisão; False caso contrário.
+      """
+      robot_position = Point(robot.x, robot.y)
+      closest_obstacle = None
+      min_distance = collision_distance
+
+      for _, obstacle in obstacles.items():
+          obstacle_position = Point(obstacle.x, obstacle.y)
+          distance = robot_position.dist_to(obstacle_position)
+          if distance <= min_distance:
+            closest_obstacle = obstacle 
+      return closest_obstacle
+  @staticmethod
+  def obstacle_direction(robot: Robot, obstacle: Robot, target: Point) -> str:
+      """
+      Determina se o obstáculo está à esquerda ou à direita do robô em relação ao objetivo.
+
+      Args:
+          robot (Robot): O robô atual.
+          obstacle (Robot): O obstáculo a ser analisado.
+          target (Point): O objetivo do robô.
+
+      Returns:
+          str: "left" se o obstáculo estiver à esquerda, "right" se estiver à direita.
+      """
+      robot_position = Point(robot.x, robot.y)
+      obstacle_position = Point(obstacle.x, obstacle.y)
+
+      # Vetores do robô para o objetivo e para o obstáculo
+      vector_to_target = Point(target.x - robot_position.x, target.y - robot_position.y)
+      vector_to_obstacle = Point(obstacle_position.x - robot_position.x, obstacle_position.y - robot_position.y)
+
+      # Produto vetorial para determinar a direção
+      cross_product = vector_to_target.x * vector_to_obstacle.y - vector_to_target.y * vector_to_obstacle.x
+
+      if cross_product > 0:
+          return False
+      else:
+          return True  
 
   @staticmethod
   def goToPoint(robot: Robot, target: Point):
