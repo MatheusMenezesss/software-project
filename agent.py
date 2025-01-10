@@ -9,13 +9,19 @@ class ExampleAgent(BaseAgent):
         self.is_avoiding = False
         self.avoid_target = None
         self.recent_obstacle = None  # Para evitar se concentrar no mesmo obstáculo
-
+        self.current_target = None
+    
+    
+    def set_target(self, target):
+        self.current_target = target
+        
+        
     def decision(self):
-        if len(self.targets) == 0:
+        if not self.current_target:
             return
 
         collision_distance = 0.45  # Distância mínima de colisão (em metros)
-        avoid_distance = 0.4  # Distância para desviar ao redor do obstáculo
+        avoid_distance = 0.45  # Distância para desviar ao redor do obstáculo
 
         # Detectar o obstáculo mais próximo
         closest_obstacle = Navigation.check_collision(self.robot, self.opponents, collision_distance)
@@ -43,7 +49,7 @@ class ExampleAgent(BaseAgent):
             robot_pos = Point(self.robot.x, self.robot.y)
 
             # Determinar direção do desvio (esquerda ou direita)
-            direction = Navigation.obstacle_direction(self.robot, closest_obstacle, self.targets[0])
+            direction = Navigation.obstacle_direction(self.robot, closest_obstacle, self.current_target)
             if not direction:  # Esquerda
                 avoid_direction_1 = (obstacle_pos - robot_pos).angle() - math.radians(45)
                 avoid_direction_2 = (obstacle_pos - robot_pos).angle() - math.radians(90)
@@ -62,7 +68,7 @@ class ExampleAgent(BaseAgent):
             )
 
             # Escolher o ponto mais próximo ao objetivo
-            target_pos = Point(self.targets[0].x, self.targets[0].y)
+            target_pos = Point(self.current_target.x, self.current_target.y)
             if target_pos.dist_to(avoid_point_1) < target_pos.dist_to(avoid_point_2):
                 self.avoid_target = avoid_point_1
             else:
@@ -71,7 +77,7 @@ class ExampleAgent(BaseAgent):
             return
 
         # Movimentação normal para o objetivo
-        target_velocity, target_angle_velocity = Navigation.goToPoint(self.robot, self.targets[0])
+        target_velocity, target_angle_velocity = Navigation.goToPoint(self.robot, self.current_target)
         self.set_vel(target_velocity)
         self.set_angle_vel(target_angle_velocity)
         return

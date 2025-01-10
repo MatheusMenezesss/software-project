@@ -51,6 +51,33 @@ class SSLExampleEnv(SSLBaseEnv):
         ball, robot = self.frame.ball, self.frame.robots_blue[0]
         return np.array([ball.x, ball.y, robot.x, robot.y])
 
+
+
+    def _assign_targets_to_agents(self):
+        unassigned_targets = self.targets.copy()
+        assigned_targets = {agent_id: None for agent_id in self.my_agents.keys()}
+        
+        for agent_id, agent in self.my_agents.items():
+            if not unassigned_targets:
+                break
+            
+            #encontrar o objetivo mais proximo do agente
+            closest_target = min(
+                unassigned_targets,
+                key=lambda target: Point(self.frame.robots_blue[agent_id].x, self.frame.robots_blue[agent_id].y).dist_to(target)
+            )
+
+            # Atribuir o objetivo ao agente
+            assigned_targets[agent_id] = closest_target
+            unassigned_targets.remove(closest_target)
+
+        # Atualizar os agentes com os objetivos atribuídos
+        for agent_id, target in assigned_targets.items():
+            if target:
+                self.my_agents[agent_id].set_target(target)
+
+
+
     def _get_commands(self, actions):
         # Keep only the last M target points
         for target in self.targets:
@@ -61,6 +88,10 @@ class SSLExampleEnv(SSLBaseEnv):
         for i in self.my_agents:
             self.robots_paths[i].push(Point(self.frame.robots_blue[i].x, self.frame.robots_blue[i].y))
 
+        self._assign_targets_to_agents()
+        
+        
+        
         # Check if the robot is close to the target
         for j in range(len(self.targets) - 1, -1, -1):
             for i in self.my_agents:
@@ -106,7 +137,8 @@ class SSLExampleEnv(SSLBaseEnv):
                     
                 others_actions.append(self.blue_agents[i].step(self.frame.robots_blue[i], obstacles, dict(), random_target, True))
 
-            for i in self.yellow_agents.keys():
+            #for i in self.yellow_agents.keys():
+            for i in range(self.n_robots_yellow):
                 random_target = []
                 if random.uniform(0.0, 1.0) < self.gen_target_prob:
                     random_target.append(Point(x=self.x(), y=self.y()))
