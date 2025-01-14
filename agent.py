@@ -36,7 +36,7 @@ class ExampleAgent(BaseAgent):
                 return
 
             # Continuar movimentando para o ponto de desvio
-            target_velocity, target_angle_velocity = Navigation.goToPoint(self.robot, self.avoid_target)
+            target_velocity, target_angle_velocity = Navigation.goToPoint(self.robot, self.avoid_target, self.opponents)
             self.set_vel(target_velocity)
             self.set_angle_vel(target_angle_velocity)
             return
@@ -77,7 +77,7 @@ class ExampleAgent(BaseAgent):
             return
 
         # Movimentação normal para o objetivo
-        target_velocity, target_angle_velocity = Navigation.goToPoint(self.robot, self.current_target)
+        target_velocity, target_angle_velocity = Navigation.goToPoint(self.robot, self.current_target, self.opponents)
         self.set_vel(target_velocity)
         self.set_angle_vel(target_angle_velocity)
         return

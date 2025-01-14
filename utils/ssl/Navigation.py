@@ -6,11 +6,11 @@ from utils.Point import Point
 from utils.Geometry import Geometry
 
 
-PROP_VELOCITY_MIN_FACTOR: float = 0.1
-MAX_VELOCITY: float = 2
+PROP_VELOCITY_MIN_FACTOR: float = 0.15
+MAX_VELOCITY: float = 1.0
 ANGLE_EPSILON: float = 0.1
-ANGLE_KP: float = 5
-MIN_DIST_TO_PROP_VELOCITY: float = 720
+ANGLE_KP: float = 3
+MIN_DIST_TO_PROP_VELOCITY: float = 800
 
 ADJUST_ANGLE_MIN_DIST: float = 50
 M_TO_MM: float = 1000.0
@@ -89,34 +89,101 @@ class Navigation:
           return False
       else:
           return True  
+  
+  @staticmethod
+  def potential_field_navegation(robot: Robot, target: Point, obstacles: dict[int, Robot], influence_radius: float = 1.5):
+    #vetor de força resultante:
+    result_force = Point(0,0)
+    
+    #forças atrativas:
+    robot_position = Point(robot.x, robot.y)
+    attraction_force = target - robot_position
+    #normaliza força
+    attraction_force = attraction_force / attraction_force.length()
+    result_force += attraction_force
+    
+    #Forças repulsivas para o objeto:
+    for _, obstacle in obstacles.items():
+      obstacle_position = Point(obstacle.x, obstacle.y)
+      distance = robot_position.dist_to(obstacle_position)
+      
+      if(distance < influence_radius):
+        repulsion_force = robot_position - obstacle_position
+        repulsion_force = repulsion_force/(distance**2)
+        result_force += repulsion_force
+    
+    if(result_force.length() > 0):
+      result_force = result_force / result_force.length()
+      
+    return result_force
 
   @staticmethod
-  def goToPoint(robot: Robot, target: Point):
-    target = Point(target.x * M_TO_MM, target.y * M_TO_MM)
-    robot_position = Point(robot.x * M_TO_MM, robot.y * M_TO_MM)
-    robot_angle = Navigation.degrees_to_radians(Geometry.normalize_angle(robot.theta, 0, 180))
+  def goToPoint(robot: Robot, target: Point, obstacles: dict[int, Robot] = None, influence_radius: float = 1.0):
+    """
+    Navegação para o ponto alvo com desvio de obstáculos e controle de velocidade.
 
+    Args:
+        robot (Robot): O robô atual.
+        target (Point): O objetivo.
+        obstacles (dict[int, Robot], opcional): Obstáculos no ambiente.
+        influence_radius (float): Raio de influência para desvio de obstáculos.
+
+    Returns:
+        Tuple[Point, float]: Velocidade translacional e velocidade angular.
+    """
+    # Converter posições do robô e do alvo para milímetros
+    target_mm = Point(target.x * M_TO_MM, target.y * M_TO_MM)
+    robot_position_mm = Point(robot.x * M_TO_MM, robot.y * M_TO_MM)
+    robot_angle_rad = Navigation.degrees_to_radians(Geometry.normalize_angle(robot.theta, 0, 180))
+
+    # Velocidade máxima inicial
     max_velocity = MAX_VELOCITY
-    distance_to_target = robot_position.dist_to(target)
-    kp = ANGLE_KP
 
-    # Use proportional speed to decelerate when getting close to desired target
+    # Distância até o objetivo
+    distance_to_target = robot_position_mm.dist_to(target_mm)
+
+    # Controle proporcional para velocidade perto do alvo
     proportional_velocity_factor = PROP_VELOCITY_MIN_FACTOR
     min_proportional_distance = MIN_DIST_TO_PROP_VELOCITY
-
     if distance_to_target <= min_proportional_distance:
-      max_velocity = max_velocity * Navigation.map_value(distance_to_target, 0.0, min_proportional_distance, proportional_velocity_factor, 1.0)
+        max_velocity *= Navigation.map_value(
+            distance_to_target, 0.0, min_proportional_distance, proportional_velocity_factor, 1.0
+        )
+    
+    
 
-    target_angle = (target - robot_position).angle()
-    d_theta = Geometry.smallest_angle_diff(target_angle, robot_angle)
+    # Vetor direção para o alvo
+    direction = target_mm - robot_position_mm
 
+    # Se houver obstáculos, ajuste a direção com campos potenciais
+    if obstacles:
+        repulsion_force = Point(0, 0)
+        for _, obstacle in obstacles.items():
+            obstacle_position = Point(obstacle.x * M_TO_MM, obstacle.y * M_TO_MM)
+            distance_to_obstacle = robot_position_mm.dist_to(obstacle_position)
+            
+            # Aplicar força repulsiva apenas se dentro do raio de influência
+            if distance_to_obstacle < influence_radius * M_TO_MM and distance_to_obstacle > 0:
+                repulsion = robot_position_mm - obstacle_position
+                repulsion = repulsion / (distance_to_obstacle ** 2)  # Decresce com o quadrado da distância
+                repulsion_force += repulsion
+
+        # Combinar forças de atração e repulsão
+        direction += repulsion_force
+        if direction.length() > 0:
+            direction = direction / direction.length()  # Normalizar direção
+
+    # Calcular ângulo para o alvo ajustado
+    target_angle = direction.angle()
+    d_theta = Geometry.smallest_angle_diff(target_angle, robot_angle_rad)
+
+    # Controle de ângulo e velocidade
     if distance_to_target > ADJUST_ANGLE_MIN_DIST:
-      v_angle = Geometry.abs_smallest_angle_diff(math.pi - ANGLE_EPSILON, d_theta)
+        v_angle = Geometry.abs_smallest_angle_diff(math.pi - ANGLE_EPSILON, d_theta)
+        v_proportional = v_angle * (max_velocity / (math.pi - ANGLE_EPSILON))
+        global_final_velocity = Geometry.from_polar(v_proportional, target_angle)
+        target_velocity = Navigation.global_to_local_velocity(global_final_velocity.x, global_final_velocity.y, robot_angle_rad)
 
-      v_proportional = v_angle * (max_velocity / (math.pi - ANGLE_EPSILON))
-      global_final_velocity = Geometry.from_polar(v_proportional, target_angle)
-      target_velocity = Navigation.global_to_local_velocity(global_final_velocity.x, global_final_velocity.y, robot_angle)
-
-      return target_velocity, -kp * d_theta
+        return target_velocity, -ANGLE_KP * d_theta
     else:
-      return Point(0.0, 0.0), -kp * d_theta
+        return Point(0.0, 0.0), -ANGLE_KP * d_theta
