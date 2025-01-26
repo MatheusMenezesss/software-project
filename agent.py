@@ -22,6 +22,7 @@ class ExampleAgent(BaseAgent):
 
         collision_distance = 0.45  # Distância mínima de colisão (em metros)
         avoid_distance = 0.45  # Distância para desviar ao redor do obstáculo
+        angle_threshold = 0.1  # Limiar para considerar a orientação como alinhada (em radianos)
 
         # Detectar o obstáculo mais próximo
         closest_obstacle = Navigation.check_collision(self.robot, self.opponents, collision_distance)
@@ -29,16 +30,18 @@ class ExampleAgent(BaseAgent):
         # Lógica de desvio
         if self.is_avoiding and self.avoid_target:
             # Verificar se o ponto de desvio foi alcançado
-            if self.pos.dist_to(self.avoid_target) < 0.1:  # Ponto alcançado
+            if self.pos.dist_to(self.avoid_target) < self.pos.dist_to(self.avoid_target):  # Ponto alcançado
                 self.is_avoiding = False
                 self.avoid_target = None
                 self.recent_obstacle = None
                 return
 
             # Continuar movimentando para o ponto de desvio
-            target_velocity, target_angle_velocity = Navigation.goToPoint(self.robot, self.avoid_target, self.opponents)
-            self.set_vel(target_velocity)
-            self.set_angle_vel(target_angle_velocity)
+            target_velocity_x, target_velocity_y, target_angle_velocity = Navigation.goToPoint(
+                self.robot, self.avoid_target, self.opponents
+            )
+            self.set_vel(Point(target_velocity_x, target_velocity_y))  # Passar velocidade como Point
+            self._set_angle_velocity_safe(target_angle_velocity, angle_threshold)  # Controle angular seguro
             return
 
         # Se há um obstáculo à frente e o agente não está desviando
@@ -77,10 +80,22 @@ class ExampleAgent(BaseAgent):
             return
 
         # Movimentação normal para o objetivo
-        target_velocity, target_angle_velocity = Navigation.goToPoint(self.robot, self.current_target, self.opponents)
-        self.set_vel(target_velocity)
-        self.set_angle_vel(target_angle_velocity)
+        target_velocity_x, target_velocity_y, target_angle_velocity = Navigation.goToPoint(
+            self.robot, self.current_target, self.opponents
+        )
+        self.set_vel(Point(target_velocity_x, target_velocity_y))  # Passar velocidade como Point
+        self._set_angle_velocity_safe(target_angle_velocity, angle_threshold)  # Controle angular seguro
         return
+
+    def _set_angle_velocity_safe(self, target_angle_velocity, angle_threshold):
+        """
+        Ajusta a velocidade angular apenas se o robô não estiver alinhado.
+        """
+        if abs(target_angle_velocity) > angle_threshold:
+            self.set_angle_vel(target_angle_velocity)
+        else:
+            self.set_angle_vel(0)  # Para evitar rotação contínua quando alinhado
 
     def post_decision(self):
         pass
+    

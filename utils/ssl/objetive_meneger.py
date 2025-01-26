@@ -50,11 +50,5 @@ class ObjectiveManager:
     def get_assigned_target(self, agent_id):
         """
         Retorna o objetivo atribuído a um agente.
-
-        Args:
-            agent_id (int): O ID do agente.
-
-        Returns:
-            Point: O objetivo atribuído ou None se nenhum objetivo foi atribuído.
         """
         return self.assigned_targets.get(agent_id, None)
