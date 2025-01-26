@@ -88,34 +88,7 @@ class Navigation:
       if cross_product > 0:
           return False
       else:
-          return True  
-  
-  @staticmethod
-  def potential_field_navegation(robot: Robot, target: Point, obstacles: dict[int, Robot], influence_radius: float = 1.5):
-    #vetor de força resultante:
-    result_force = Point(0,0)
-    
-    #forças atrativas:
-    robot_position = Point(robot.x, robot.y)
-    attraction_force = target - robot_position
-    #normaliza força
-    attraction_force = attraction_force / attraction_force.length()
-    result_force += attraction_force
-    
-    #Forças repulsivas para o objeto:
-    for _, obstacle in obstacles.items():
-      obstacle_position = Point(obstacle.x, obstacle.y)
-      distance = robot_position.dist_to(obstacle_position)
-      
-      if(distance < influence_radius):
-        repulsion_force = robot_position - obstacle_position
-        repulsion_force = repulsion_force/(distance**2)
-        result_force += repulsion_force
-    
-    if(result_force.length() > 0):
-      result_force = result_force / result_force.length()
-      
-    return result_force
+          return True 
 
   @staticmethod
   def goToPoint(robot: Robot, target: Point, obstacles: dict[int, Robot] = None, influence_radius: float = 1.0):
@@ -157,6 +130,7 @@ class Navigation:
 
     # Se houver obstáculos, ajuste a direção com campos potenciais
     if obstacles:
+        #direction = Navigation.potential_field_navegation(robot, target, obstacles)
         repulsion_force = Point(0, 0)
         for _, obstacle in obstacles.items():
             obstacle_position = Point(obstacle.x * M_TO_MM, obstacle.y * M_TO_MM)
